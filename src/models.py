@@ -18,11 +18,8 @@ class Car(BaseModel):
     date_start: datetime
     status: CarStatus
 
-    # выдает True, если объект соответствует фильтру
-    # примитивный аналог WHERE
-    def apply_filter(self, filter: list[dict]) -> bool:
-        return True
-    
+    _has_index_changed: bool = False
+
     def index(self) -> str:
         return self.vin
     
@@ -49,11 +46,8 @@ class Model(BaseModel):
     name: str
     brand: str
 
-    # выдает True, если объект соответствует фильтру
-    # примитивный аналог WHERE
-    # def apply_filter(self, filter: list[dict]) -> bool:
-    #     return True
-    
+    _has_index_changed: bool = False
+
     def index(self) -> str:
         return str(self.id)
 
@@ -79,15 +73,25 @@ class Sale(BaseModel):
     sales_date: datetime
     cost: Decimal
 
-    def apply_filter(self, filter: list[dict]) -> bool:
-        return True
-    
+    _has_index_changed: bool = False
+
     def index(self) -> str:
-        return self.car_vin
+        return self.sales_number
 
     @staticmethod
     def primary_key_field() -> str:
-        return 'car_vin'
+        return 'sales_number'
+    
+    # создание объекта из строки с разделителями
+    @staticmethod
+    def from_string(value: str):
+        fields = value.rstrip().split(';')
+        return Sale(
+            sales_number = fields[0],
+            car_vin = fields[1], 
+            sales_date = datetime.strptime(fields[2], f'%Y-%m-%d %H:%M:%S'),
+            cost = Decimal(fields[3])
+        )
 
 
 class CarFullInfo(BaseModel):
