@@ -25,9 +25,9 @@ def Main(data_path: str):
     # car_service.add_car(Car(vin = 'VF1LZL2T4BC242298', model = 5, price = 2280.76, date_start = '2024-08-31', status = 'delivery'))
 
     # result = car_service.select_data(Model, [], [{'brand': 'desc'}, {'name':'asc'}])
-    # result = car_service.get_cars(CarStatus('available'))
-    # for r in result:
-    #     print(r)
+    result = car_service.get_cars(CarStatus.available)
+    for r in result:
+        print(r)
     # result = car_service.select_data(Model, [{'brand': 'Kia'},{'name': 'Optima'}])
     # print(result)
 

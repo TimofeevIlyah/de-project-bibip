@@ -168,24 +168,25 @@ class CarService:
     def read_table_file(self, obj_type, position: int, filters: list[dict]) -> list[object]:
         result = []
         data_filename = self.get_object_data_file_name(obj_type)
-        with open(data_filename, 'r') as file:
-            # если указан номер строки
-            if position != None:
-                seek_position = (position - 1) * (self.MAX_LINE_LEN + self.RN_LEN)
-                file.seek(seek_position)
-                value = file.read(self.MAX_LINE_LEN)
-                current_object = obj_type.from_string(value)
-                if self.apply_filter(current_object, filters):
-                    result.append(current_object)
-            else:
-                # чтение кусками по MAX_LINE_LEN
-                while True:
-                    value = file.read(self.MAX_LINE_LEN + self.RN_LEN - 1)[:self.MAX_LINE_LEN] #-1 - потому что не знаю почему, но при чтении в винде 0x0D0A преобразовывется в один символ \n. А при записи - наоборот.
-                    if value=='':
-                        break
+        if os.path.exists(data_filename):
+            with open(data_filename, 'r') as file:
+                # если указан номер строки
+                if position != None:
+                    seek_position = (position - 1) * (self.MAX_LINE_LEN + self.RN_LEN)
+                    file.seek(seek_position)
+                    value = file.read(self.MAX_LINE_LEN)
                     current_object = obj_type.from_string(value)
                     if self.apply_filter(current_object, filters):
                         result.append(current_object)
+                else:
+                    # чтение кусками по MAX_LINE_LEN
+                    while True:
+                        value = file.read(self.MAX_LINE_LEN + self.RN_LEN - 1)[:self.MAX_LINE_LEN] #-1 - потому что не знаю почему, но при чтении в винде 0x0D0A преобразовывется в один символ \n. А при записи - наоборот.
+                        if value=='':
+                            break
+                        current_object = obj_type.from_string(value)
+                        if self.apply_filter(current_object, filters):
+                            result.append(current_object)
 
         return result
     
@@ -255,7 +256,7 @@ class CarService:
         car: Car = self.select_data(Car, [{'vin': sale.car_vin}])[0]
         if car != None:            
             # меняем статус на Продано
-            car.status = CarStatus('sold')
+            car.status = CarStatus.sold
             # дамп в файл. тут бы транзакцию...
             self.save_data(car)
             self.save_data(sale)
@@ -265,39 +266,48 @@ class CarService:
 
     # Задание 3. Доступные к продаже
     def get_cars(self, status: CarStatus) -> list[Car]:
-        result: list[Car] = self.select_data(Car, [{'status':status}], [{'vin': 'asc'}])
+        # result: list[Car] = self.select_data(Car, [{'status':status}], [{'vin': 'asc'}])
+        result: list[Car] = self.select_data(Car, [{'status':status}])
         return result
 
     # Задание 4. Детальная информация
     def get_car_info(self, vin: str) -> CarFullInfo | None:
         result = None
-        car: Car = self.select_data(Car, [{'vin': vin}])[0]
-        if car != None:
-            result_vin = car.vin
-            result_price = car.price
-            result_date_start = car.date_start
-            result_status = car.status
+        ds_cars = self.select_data(Car, [{'vin': vin}])
+        if ds_cars:
+            car: Car = ds_cars[0]
+            if car != None:
+                result_vin = car.vin
+                result_price = car.price
+                result_date_start = car.date_start
+                result_status = car.status
 
-            model: Model = self.select_data(Model, [{'id': car.model}])[0]
-            if model != None:
-                result_car_model_name = model.name
-                result_car_model_brand = model.brand
-            
-            sale: Sale = self.select_data(Sale, [{'car_vin': vin}])[0]
-            if sale!=None:
-                result_sales_date = sale.sales_date
-                result_sales_cost = sale.cost
+                ds_models = self.select_data(Model, [{'id': car.model}])
+                if ds_models:
+                    model: Model = ds_models[0]
+                    if model != None:
+                        result_car_model_name = model.name
+                        result_car_model_brand = model.brand
+                
+                result_sales_date = None
+                result_sales_cost = None
+                ds_sales = self.select_data(Sale, [{'car_vin': vin}])
+                if ds_sales:
+                    sale: Sale = ds_sales[0]
+                    if sale!=None:
+                        result_sales_date = sale.sales_date
+                        result_sales_cost = sale.cost
 
-            result = CarFullInfo(
-                vin = result_vin,
-                car_model_name = result_car_model_name,
-                car_model_brand = result_car_model_brand,
-                price = result_price,
-                date_start = result_date_start,
-                status = result_status,
-                sales_date = result_sales_date,
-                sales_cost = result_sales_cost,
-            )            
+                result = CarFullInfo(
+                    vin = result_vin,
+                    car_model_name = result_car_model_name,
+                    car_model_brand = result_car_model_brand,
+                    price = result_price,
+                    date_start = result_date_start,
+                    status = result_status,
+                    sales_date = result_sales_date,
+                    sales_cost = result_sales_cost,
+                )
 
         return result
 
@@ -328,7 +338,7 @@ class CarService:
             # удалить продажу
             self.delete_data_with_vacuum(Sale, [{'sales_number': sales_number}])
             # обновить статус машины
-            car.status = CarStatus('available')
+            car.status = CarStatus.available
             # сохранить
             self.save_data(car)
 
